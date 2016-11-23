@@ -1,4 +1,4 @@
-var WIDTH = 700, HEIGHT = 600, pi = Math.pi;
+var WIDTH = 700, HEIGHT = 600, pi = Math.PI;
 var UpArrow =38, DownArrow =40;
 var canvas, ctx, keystate;
 var player, ai ,ball;
@@ -12,6 +12,7 @@ player = {
 	update: function() {
 		if (keystate[UpArrow]) this.y -= 7;
 		if (keystate[DownArrow]) this.y += 7;
+		this.y = Math.max(Math.min(this.y, HEIGHT - this.height), 0);
 	},
 	draw: function() {
 		ctx.fillRect(this.x, this.y, this.width, this.height); 
@@ -23,7 +24,11 @@ ai = {
 	width:20,
 	height: 100,
 
-	update: function() {},
+	update: function() {
+		var desty = ball.y - (this.height - ball.side) * 0.5;
+		this.y += (desty - this.y) * 0.1;
+		this.y = Math.max(Math.min(this.y, HEIGHT - this.height), 0);
+	},
 	draw: function() {
 		ctx.fillRect(this.x, this.y, this.width, this.height); 
 	}
@@ -33,7 +38,19 @@ ball = {
 	y: null,
 	vel: null,
 	side: 20,
-	speed: 5,
+	speed: 15,
+
+	serve: function(side) {
+		var r = Math.random();
+		this.x = side === 1 ? player.x + player.width : ai.x -this.side;
+		this.y = (HEIGHT - this.side) * r;
+
+		var phi = 0.1*pi*(1-2*r);
+		this.vel = {
+			x: side*this.speed*Math.cos(phi),
+			y: this.speed*Math.sin(phi)
+		}
+	},
 
 	update: function() {
 		this.x += this.vel.x;
@@ -53,13 +70,19 @@ ball = {
 		var pdle = this.vel.x < 0 ? player : ai;			//chooses which side will be bounced
 		if (AABBIntersect(pdle.x, pdle.y, pdle.width, pdle.height, this.x, this.y, this.side, this. side)
 		) {
-			console.log(pi);
+			
 			this.x = (pdle === player) ? player.x + player.width : ai.x - this.side;
 			var n = (this.y + this.side - pdle.y) / (pdle.height + this.side);
 			var phi = 0.25*pi*(2*n-1); 			//pi/4 = 45 derece
-			this.vel.x = (pdle === player ? 1 : -1) * this.speed*Math.cos(phi);		// ball bounces from players.
-			this.vel.y = this.speed*Math.sin(phi);
+
+			var smash = Math.abs(phi) > 0.2 * pi ? 1.5 : 1;			// increase speed after smash by the *smash on next line
+			this.vel.x = smash * (pdle === player ? 1 : -1) * this.speed*Math.cos(phi);		// ball bounces from players.
+			this.vel.y = smash * this.speed*Math.sin(phi);
 		}
+
+		if (0 > this.x + this.side || this.x > WIDTH) {
+			this.serve(pdle === player ? 1 : -1);
+		}	
 	},
 	draw: function() {
 		ctx.fillRect(this.x, this.y, this.side, this.side); 
@@ -99,13 +122,7 @@ function init() {
 	ai.x = WIDTH - (player.width + ai.width);
 	ai.y = (HEIGHT - ai.height)/2;
 
-	ball.x = (WIDTH - ball.side)/2;
-	ball.y = (HEIGHT - ball.side)/2;
-
-	ball.vel = {
-		x: ball.speed,
-		y: 0
-	}
+	ball.serve(1);
 }
 
 function update() {
